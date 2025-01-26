@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown to MediaWiki Converter</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .drag-drop-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 4px;
+            padding: 2rem;
+            text-align: center;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .drag-drop-zone:hover { background-color: #e9ecef; }
+        .drag-drop-zone.dragover {
+            background-color: #e9ecef;
+            border-color: #0d6efd;
+        }
+        .language-switch {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+        }
+        .features-list p {
+            color: #666;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-5 position-relative">
+    <div class="language-switch">
+        <button class="btn btn-outline-primary" onclick="toggleLanguage()" id="langToggle">English</button>
+    </div>
+
+    <h1 class="mb-4" data-lang="title">Markdown 轉 MediaWiki</h1>
+
+    <div class="card mb-4 bg-light">
+        <div class="card-body">
+            <div class="features-list" id="featuresList"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="converterTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="paste-tab" data-bs-toggle="tab" data-bs-target="#paste" type="button" role="tab" aria-controls="paste" aria-selected="true" data-lang="pasteTab">貼上文字</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="false" data-lang="uploadTab">上傳檔案</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="converterTabContent">
+                <div class="tab-pane fade show active" id="paste" role="tabpanel">
+                    <div class="d-flex justify-content-end mb-2">
+                        <button class="btn btn-outline-secondary btn-sm" id="loadExampleBtn" data-lang="loadExample">載入範例</button>
+                    </div>
+                    <div class="form-group">
+                        <textarea class="form-control" id="markdownInput" rows="8" data-lang-placeholder="markdownPlaceholder"></textarea>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="upload" role="tabpanel">
+                    <div class="drag-drop-zone mb-3" id="dropZone">
+                        <img src="upload.png" alt="upload icon" class="mb-3" style="width:50px;">
+                        <h5 data-lang="dropZoneTitle">拖放檔案到這裡或點擊上傳</h5>
+                        <p class="text-muted" data-lang="supportedFiles">支援 .md, .markdown, .txt 檔案</p>
+                        <input type="file" id="fileInput" accept=".md,.markdown,.txt" class="d-none">
+                        <button class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()" data-lang="chooseFile">選擇檔案</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultSection" class="mt-4 d-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <h5 class="mb-0" data-lang="resultTitle">MediaWiki 結果</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="removeHrOption">
+                            <label class="form-check-label" for="removeHrOption" data-lang="removeHr">清除水平線 (---)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="noBoldHeadingOption">
+                            <label class="form-check-label" for="noBoldHeadingOption" data-lang="noBoldHeading">標題不加粗</label>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm" id="copyButton" data-lang="copyButton">複製結果</button>
+                </div>
+                <textarea class="form-control bg-light" id="wikiOutput" rows="8" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <a href="https://www.flaticon.com/free-icons/picture" title="picture icons">Picture icons created by Graphics Plazza - Flaticon</a>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script type="module">
+    import { markdownToMediaWiki } from './src/markdown-converter.js';
+
+    const translations = {
+        'zh': {
+            'title': 'Markdown 轉 MediaWiki',
+            'uploadTab': '上傳檔案',
+            'pasteTab': '貼上文字',
+            'dropZoneTitle': '拖放檔案到這裡或點擊上傳',
+            'supportedFiles': '支援 .md, .markdown, .txt 檔案',
+            'chooseFile': '選擇檔案',
+            'markdownPlaceholder': '在此貼上 Markdown 文字...',
+            'resultTitle': 'MediaWiki 結果',
+            'removeHr': '清除水平線 (---)',
+            'noBoldHeading': '標題不加粗',
+            'copyButton': '複製結果',
+            'copied': '已複製！',
+            'loadExample': '載入範例',
+            'featuresTitle': '功能：',
+            'features': [
+                "支援 Markdown 格式轉換，包含 #️⃣ 標題、1️⃣ 清單、🤖 程式碼區塊等。提供彈性的轉換選項，可自訂水平線和標題粗體的處理方式。支援檔案拖放上傳和一鍵複製功能，方便快速轉換。"
+            ]
+        },
+        'en': {
+            'title': 'Markdown to MediaWiki Converter',
+            'uploadTab': 'Upload File',
+            'pasteTab': 'Paste Text',
+            'dropZoneTitle': 'Drag & Drop files here or click to upload',
+            'supportedFiles': 'Supports .md, .markdown, .txt files',
+            'chooseFile': 'Choose File',
+            'markdownPlaceholder': 'Paste your Markdown text here...',
+            'resultTitle': 'MediaWiki Result',
+            'removeHr': 'Remove horizontal lines (---)',
+            'noBoldHeading': 'No bold for headings',
+            'copyButton': 'Copy Result',
+            'copied': 'Copied!',
+            'loadExample': 'Load Example',
+            'featuresTitle': 'Features:',
+            'features': [
+                "Supports conversion of various Markdown formats including #️⃣ headings, 1️⃣ lists, and 🤖 code blocks. Offers flexible conversion options for customizing horizontal lines and heading styles. Features drag-and-drop file upload and one-click copy functionality for quick conversion."
+            ]
+        }
+    };
+
+    let currentLang = 'zh';
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const markdownInput = document.getElementById('markdownInput');
+    const wikiOutput = document.getElementById('wikiOutput');
+    const resultSection = document.getElementById('resultSection');
+    const copyButton = document.getElementById('copyButton');
+    const removeHrOption = document.getElementById('removeHrOption');
+    const noBoldHeadingOption = document.getElementById('noBoldHeadingOption');
+    let lastProcessedContent = '';
+
+    function updateFeatures() {
+        const featuresList = document.getElementById('featuresList');
+        featuresList.innerHTML = `<p class="mb-0">${translations[currentLang].features[0]}</p>`;
+    }
+
+    window.toggleLanguage = function() {
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
+        updateLanguage();
+        updateFeatures();
+        document.getElementById('langToggle').textContent = currentLang === 'zh' ? 'English' : '中文';
+        document.documentElement.lang = currentLang === 'zh' ? 'zh-TW' : 'en';
+        markdownInput.placeholder = translations[currentLang]['markdownPlaceholder'];
+    };
+
+    function updateLanguage() {
+        document.querySelectorAll('[data-lang]').forEach(element => {
+            const key = element.getAttribute('data-lang');
+            if (translations[currentLang][key]) {
+                element.textContent = translations[currentLang][key];
+            }
+        });
+
+        document.querySelectorAll('[data-lang-placeholder]').forEach(element => {
+            const key = element.getAttribute('data-lang-placeholder');
+            if (translations[currentLang][key]) {
+                element.placeholder = translations[currentLang][key];
+            }
+        });
+    }
+
+    function convertMarkdown(markdown) {
+        return markdownToMediaWiki(markdown, {
+            removeHr: removeHrOption.checked,
+            noBoldHeading: noBoldHeadingOption.checked
+        });
+    }
+
+    function showResult(wiki) {
+        wikiOutput.value = wiki;
+        resultSection.classList.remove('d-none');
+    }
+
+    function handleFile(file) {
+        if (file && (file.name.endsWith('.md') || file.name.endsWith('.markdown') || file.name.endsWith('.txt'))) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                lastProcessedContent = e.target.result;
+                showResult(convertMarkdown(lastProcessedContent));
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        handleFile(e.target.files[0]);
+    });
+
+    markdownInput.addEventListener('input', (e) => {
+        lastProcessedContent = e.target.value;
+        if (lastProcessedContent) {
+            showResult(convertMarkdown(lastProcessedContent));
+        } else {
+            resultSection.classList.add('d-none');
+        }
+    });
+
+    [removeHrOption, noBoldHeadingOption].forEach(option => {
+        option.addEventListener('change', () => {
+            if (lastProcessedContent) {
+                showResult(convertMarkdown(lastProcessedContent));
+            }
+        });
+    });
+
+    copyButton.addEventListener('click', () => {
+        wikiOutput.select();
+        document.execCommand('copy');
+
+        const originalText = copyButton.textContent;
+        copyButton.textContent = translations[currentLang]['copied'];
+        setTimeout(() => {
+            copyButton.textContent = originalText;
+        }, 2000);
+    });
+
+    const exampleMarkdowns = {
+        'zh': `# 一级標題
+
+## 二级標題
+
+段落以空白行分隔。
+
+行末兩個空格
+産生斷行。
+
+文本屬性：*斜體*、
+**粗體**、\`等寬字型Monospace\`。
+
+水平線：
+
+---
+
+列表：
+
+* 張三
+* 李四
+* 王五
+
+編號列表 (僅支援至第三層)：
+
+1. 第一項
+2. 第二項
+3. 第三項
+    1. 子項目一
+    2. 子項目二
+        1. 深層項目甲
+        2. 深層項目乙
+4. 第四項
+    1. 子項目三
+    2. 子項目四
+
+Code block：
+
+\`\`\`python
+print("Hello, World!")
+\`\`\`
+
+[連結](http://example.com)
+
+![圖](Icon-pictures.png "icon")
+
+> Markdown 使用「>」字元引用。
+
+~~刪除線~~
+
+行間<abbr title="Hypertext Markup Language">HTML</abbr>也支援。`,
+
+        'en': `# Main Title
+
+## Section Title
+
+Paragraphs are separated by blank lines.
+
+Two spaces at line end
+creates a line break.
+
+Text styles: *italic*,
+**bold**, \`monospace\`.
+
+Horizontal rule:
+
+---
+
+List:
+
+* John
+* Mary
+* Tom
+
+Numbered list (supports up to 3 levels):
+
+1. First item
+2. Second item
+3. Third item
+    1. Sub-item 1
+    2. Sub-item 2
+        1. Deep item A
+        2. Deep item B
+4. Fourth item
+    1. Sub-item 3
+    2. Sub-item 4
+
+Code block:
+
+\`\`\`python
+print("Hello, World!")
+\`\`\`
+
+[Link](http://example.com)
+
+![Image](Icon-pictures.png "icon")
+
+> Quote blocks use email-style '>' character.
+
+~~Strikethrough~~
+
+Inline <abbr title="Hypertext Markup Language">HTML</abbr> is supported.`
+    };
+
+    document.getElementById('loadExampleBtn').addEventListener('click', () => {
+        markdownInput.value = exampleMarkdowns[currentLang];
+        markdownInput.dispatchEvent(new Event('input'));
+    });
+
+    updateLanguage();
+    updateFeatures();
+</script>
+</body>
+</html>
